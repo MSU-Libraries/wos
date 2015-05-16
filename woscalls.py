@@ -1,17 +1,18 @@
 from wos import Wos
 import os
+from datetime import datetime
 
 class WosCalls():
     """Run searches against the WOS API using the Wos class."""
 
-    def __init__(self, search_queries=None):
+    def __init__(self, search_queries=None, sleep_time=1):
         """
         Initialize search queries.
 
         Keyword arguments:
-        search_queries (list) -- Provide queries in a list or leave unset to use queries below.
+        search_queries (list) -- Provide queries in a list or leave unset to use default queries below.
         """
-        self.wos = Wos()
+        self.wos = Wos(sleep_time=sleep_time)
         self.wos.authorize()
         self.wos.retrieve_parameters()
 
@@ -45,13 +46,21 @@ class WosCalls():
         """Return all results from queries defined in __init__."""
         self.total_results = 0
         for search_query in self.search_queries:
-            print "Processing query: {0}".format(search_query)
             self.wos.query_parameters(search_query)
             self.wos.search(self.wos.qp, self.wos.retrieve_parameters())
             self.total_results += self.wos.records_found
+            self.check_session()
 
         print "Process complete."
         print "Returned {0} records".format(self.total_results)
+
+
+    def check_session(self):
+        """If session has lasted too long, break and restart session."""
+        print self.wos.total_calls
+        if self.wos.total_calls > 2000:
+
+            self.wos.close_session()
 
 
     def get_citing_articles(self):
@@ -59,16 +68,24 @@ class WosCalls():
         for record in self.wos.metadata_collection["search_results"]:
             uid = record["accession_number"]
             self.wos.citing_articles(uid, self.wos.retrieve_parameters())
+            self.check_session()
 
         print "Process complete."
         print "Searched {0} UIDs".format(len(self.wos.metadata_collection))
 
 
-    def get_cited_references(self):
+    def get_cited_references(self, get_full_records=True):
+        """
+        Get all citations mentioned in a given article.
+
+        Keyword arguments:
+        get_full_records (bool) -- if true, perform title search on references with full metadata.
+        """
 
         for record in self.wos.metadata_collection["search_results"]:
             uid = record["accession_number"]
-            self.wos.cited_references(uid, self.wos.retrieve_parameters(option={"key": "Hot", "value": "On"}))
+            self.wos.cited_references(uid, self.wos.retrieve_parameters(option={"key": "Hot", "value": "On"}), database_id="WOS", get_full_records=get_full_records)
+            self.check_session()
 
         print "Process complete."
         print "Searched {0} UIDs".format(len(self.wos.metadata_collection))
@@ -77,7 +94,7 @@ class WosCalls():
     def make_results_tsv(self, search_type, output_file=None):
 
         if not output_file:
-            output_file = os.path.join(".", search_type+"_results.tsv")
+            output_file = os.path.join(".", "{0}_results_{1}.tsv".format(search_type, datetime.now().strftime("%Y-%m-%d-%H%M")))
         
         if not self.wos.metadata_collection[search_type]:
             print "No search results to process."

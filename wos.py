@@ -6,7 +6,6 @@ from datetime import date
 from lxml import etree, objectify
 import urllib2
 import time
-
 import logging
 logging.basicConfig(level=logging.INFO)
 
@@ -15,14 +14,15 @@ logging.getLogger('suds.client').setLevel(logging.ERROR)
 class Wos():
     """Handle requests to the Web of Knowledge API"""
 
-    def __init__(self, client="Search"):
+    def __init__(self, client="Search", sleep_time=1):
         """
         Establish URLs for authentication, search, and search lite methods.
 
         Keyword arguments:
         client (str) -- search client to initialize: choose "Lite" or "Search"
         """
-
+        self.total_calls = 0
+        self.sleep_time = sleep_time
         self.client = client
         self.auth_url = "http://search.webofknowledge.com/esti/wokmws/ws/WOKMWSAuthenticate?wsdl"
         self.search_lite_url = "http://search.webofknowledge.com/esti/wokmws/ws/WokSearchLite?wsdl"
@@ -31,22 +31,30 @@ class Wos():
         self.search_client = None
         self.metadata_collection = {"search_results": [],
                                     "forward_citations": [],
-                                    "backward_citations": []}
+                                    "backward_citations": [],
+                                    "hot_records":[],}
         self.qp = None
         self.rp = None
         self.uids = []
 
     def authorize(self):
         """Run authenticate service to retrieve token."""
-        auth_client = Client(self.auth_url)
+        self.auth_client = Client(self.auth_url)
         try:
-            self.sid_token = auth_client.service.authenticate()
+            self.sid_token = self.auth_client.service.authenticate()
             self._add_sid()
             print "Search client authorized."
+            self.total_calls += 1
             
         except Exception as e:
             print "Authentication failed."
             print e
+
+    def close_session(self):
+        """Close session."""
+        self.auth_client.service.closeSession()
+        self.total_calls = 0
+        self.authorize()
 
     def _add_sid(self):
         """Create URL opener with authentication token as header."""
@@ -82,7 +90,6 @@ class Wos():
         """
         self.qp = qp
         self.rp = rp
-        self.category = "search_results"
         if self.client == "Lite":
             self.search_results = self.search_client.service.search(qp, rp)
             self.query_id = self.search_results.queryId
@@ -178,7 +185,7 @@ class Wos():
          
         return self.rp
 
-    def cited_references(self, uid, rp, database_id="WOS", query_language="en"):
+    def cited_references(self, uid, rp, database_id="WOS", query_language="en", get_full_records=True):
         """
         Return cited references for a given article based on uid.
 
@@ -192,16 +199,18 @@ class Wos():
         """
         self.uid = uid
         self.rp = rp
-        self.category = "backward_citations"
+        self.get_full_records = get_full_records
         self.database_id = database_id
         self.query_language = query_language
+        self.query = self.uid
 
         self.search_results = self.search_client.service.citedReferences(database_id, uid, query_language, rp)
-        time.sleep(0.5)
+        self.total_calls += 1
+        time.sleep(self.sleep_time)
 
         self._process_results()
         if self.records_found <> 0:
-            self._get_metadata_citation(self.uid)
+            self._get_metadata_citation(self.uid, "backward_citations")
 
         if self.records_found > self.count:
             self._iterations = int(self.records_found / self.rp.count) + 1
@@ -210,8 +219,9 @@ class Wos():
                 self.rp = self.retrieve_parameters(first_record=1+(i)*self.count, count=self.count, 
                                                   sort_field=self.sort_field, view_field=self.view_field, option=self.option)
                 self.search_client.service.citedReferences(database_id, uid, query_language, self.rp)
-                time.sleep(0.5)
-                self._get_metadata_citation(self.uid)
+                self.total_calls += 1
+                time.sleep(self.sleep_time)
+                self._get_metadata_citation(self.uid, "backward_citations")
 
 
     def citing_articles(self, uid, rp, database_id="WOS", query_language="en", time_begin="1900-01-01", time_end=None, symbolic_timespan=None):
@@ -233,7 +243,6 @@ class Wos():
         self.rp = rp
         self.database_id = database_id
         self.query_language = query_language
-        self.category = "forward_citations"
 
         # For now, this is not configurable. TODO: make configurable.
         self.edition_desc = self.search_client.factory.create("editionDesc")
@@ -244,11 +253,12 @@ class Wos():
             self.time_span = self.symbolic_timespan
 
         self.search_results = self.search_client.service.citingArticles(database_id, uid, self.edition_desc, self.time_span, query_language, rp)
-        time.sleep(0.5)
+        time.sleep(self.sleep_time)
+        self.total_calls += 1
 
         self._process_results()
         if self.records_found <> 0:
-            self._get_metadata(self.uid)
+            self._get_metadata(self.uid, "forward_citations")
 
         if self.records_found > self.count:
             self._iterations = int(self.records_found / self.rp.count) + 1
@@ -256,8 +266,8 @@ class Wos():
                 self.rp = self.retrieve_parameters(first_record=1+(i)*self.count, count=self.count, 
                                                   sort_field=self.sort_field, view_field=self.view_field, option=self.option)
                 self.retrieve(self.query_id, self.rp)
-                time.sleep(0.5)
-                self._get_metadata(self.uid)
+                time.sleep(self.sleep_time)
+                self._get_metadata(self.uid, "forward_citations")
 
 
     def retrieve_by_id(self, uid, rp, query_language="en", database_id="WOS"):
@@ -273,6 +283,7 @@ class Wos():
         database_id (str) -- from the WOS set of database abbreviations. "WOS" correpsonds to the WOS core collection.
         """
         self.item = self.search_client.service.retrieveById(database_id, uid, query_language, rp)
+        self.total_calls += 1
         return self.item
 
 
@@ -285,7 +296,8 @@ class Wos():
         rp (obj) -- RetrieveParameters object created via retrieve_parameters method.
         """
         self.search_results = self.search_client.service.retrieve(query_id, rp)
-        time.sleep(0.5)
+        self.total_calls += 1
+        time.sleep(self.sleep_time)
 
 
     def cited_references_retrieve(self, query_id):
@@ -296,7 +308,8 @@ class Wos():
         query_id (str) -- ID from previously run search.
         """
         self.search_results = self.search_client.service.citedReferencesRetrieve(query_id)
-        time.sleep(0.5)
+        self.total_calls += 1
+        time.sleep(self.sleep_time)
 
 
     def _get_uids(self):
@@ -308,23 +321,26 @@ class Wos():
                 if subelement.tag == uid_tag:
                     self.uids.append((subelement.text, self.query))
 
-    def _get_metadata(self, query):
+    def _get_metadata(self, query, category):
         """
         Retrieve metadata from all search results and store in dictionary of elements.
+
         Positional arguments:
         query (str) -- the initial query string for the given search results.
+        category (str) -- the container in which to store the gathered metadata. See self.metadata_collection template in __init__.
         """
         self.tree = etree.fromstring(self.search_results.records)
         objectify.deannotate(self.tree, cleanup_namespaces=True)
         for record in self.tree:
             self.meta_record = MetaWos(record, query)
-            self.metadata_collection[self.category].append(self.meta_record.compile_metadata())
+            self.metadata_collection[category].append(self.meta_record.compile_metadata())
 
-    def _get_metadata_citation(self, query):
+    def _get_metadata_citation(self, query, category):
         """
         Special metadata processing for meager results from citedReferences search.
 
         query (str) -- key search term that produced the results.
+        category (str) -- the container in which to store the gathered metadata. See self.metadata_collection template in __init__.
         """
         for item in self.search_results.references:
             meta_record = {"docid":"",
@@ -334,6 +350,10 @@ class Wos():
                            "hot":"",
                            "year":""}
 
+            if self.get_full_records and item["hot"] == "yes":
+                self.hot_item = item
+                self.get_full_record()
+
             for key in meta_record.keys():
                 if key in item:
                     meta_record[key] = item[key]
@@ -342,15 +362,103 @@ class Wos():
                     meta_record[key] = "NONE"
                     
             meta_record["source_id"] = self.uid
-            self.metadata_collection[self.category].append(meta_record)
+            self.metadata_collection[category].append(meta_record)
 
 
+    def get_full_record(self):
+        """
+        Run title search on 'hot' records, that is, ones with WOS ids.
+
+        Start with most stringent search, then progressively loosen to improve likelihood of a match:
+        Search 1: journal_title AND pub_year AND title
+        Search 2: journal_title AND title
+        Search 3: title
+        """
+        booleans = ["and", "near", "or", "not"]
+
+        record_title = " ".join([w.lower().strip("?;:.,-_()[]<>{}!`'").lstrip().rstrip().replace("=", "").replace("(", "").replace(")", "").replace("[", "").replace("]", "") for w in self.hot_item["citedTitle"].split() if w.lower() not in booleans])
+
+        if "citedWork" in self.hot_item:
+            journal_title = self.hot_item["citedWork"]
+        else:
+            journal_title = "NONE"
+
+        if "year" in self.hot_item:
+            pub_year = self.hot_item["year"]
+        else:
+            pub_year = "NONE"
+
+        self.rp_title_search = self.retrieve_parameters(count="1")
+        try:
+            # Search 1
+            if self._run_full_record_search(record_title, pub_year=pub_year, journal_title=journal_title) >= 1:
+                self.tree = etree.fromstring(self.title_search_results.records)
+
+            # Search 2
+            elif self._run_full_record_search(record_title, journal_title=journal_title) >= 1:
+                self.tree = etree.fromstring(self.title_search_results.records)
+
+            # Search 3
+            else:
+                self._run_full_record_search(record_title)
+
+            self.tree = etree.fromstring(self.title_search_results.records)
+
+            if self.search_count == 1:
+                for record in self.tree:
+                    
+                    self.title_meta_record = MetaWos(record, record_title)
+                    self.title_metadata = self.title_meta_record.compile_metadata()
+                    self.title_metadata["source_id"] = self.uid
+                    self.metadata_collection["hot_records"].append(self.title_metadata)
+
+        except Exception as e:
+            print "*******************ERROR*************************"
+            print record_title
+            print e
+            print "*************************************************"
+
+    def _run_full_record_search(self, record_title, pub_year=None, journal_title=None):
+        """
+        Run any of 3 searches, more or less stringent, depending on parameters passed in.
+
+        Positional arguments:
+        title (str) -- only required variable, included in all searches
+
+        Keyword arguments:
+        pub_year (str) -- if present, run search 1
+        journal_title (str) -- if present, run search 1 or 2
+        """
+        if pub_year:
+            self.qp_title_search = self.query_parameters(u"TI=({0}) AND PY=({1}) AND SO=({2})".format(record_title, pub_year, journal_title), database_id="WOK")
+            self.title_search_results = self.search(self.qp_title_search, self.rp_title_search)
+            time.sleep(self.sleep_time)
+            self.total_calls += 1
+            search_count = self.search_results.recordsFound
+
+        elif journal_title:
+            self.qp_title_search = self.query_parameters(u"TI=({0}) AND SO=({1})".format(record_title, journal_title), database_id="WOK")
+            self.title_search_results = self.search(self.qp_title_search, self.rp_title_search)
+            time.sleep(self.sleep_time)
+            self.total_calls += 1
+            search_count = self.search_results.recordsFound
+
+        else:
+            self.qp_title_search = self.query_parameters(u"TI=({0})".format(record_title), database_id="WOK")
+            self.title_search_results = self.search(self.qp_title_search, self.rp_title_search)
+            time.sleep(self.sleep_time)
+            self.total_calls += 1
+            search_count = self.search_results.recordsFound
+
+        self.search_count = search_count
+        return search_count
 
     def _run_search(self):
         """Run search page by page until all results are retrieved."""
         self.search_results = self.search_client.service.search(self.qp, self.rp)
-        self._get_metadata(self.query)
-        time.sleep(0.5)
+        self._get_metadata(self.query, "search_results")
+        self.total_calls += 1
+        time.sleep(self.sleep_time)
 
         self._process_results()
 
@@ -362,15 +470,14 @@ class Wos():
                 self.rp = self.retrieve_parameters(first_record=1+(i)*self.count, count=self.count, 
                                                   sort_field=self.sort_field, view_field=self.view_field, option=self.option)
                 self.retrieve(self.query_id, self.rp)
-                time.sleep(0.5)
-                self._get_metadata(self.query)
+                self._get_metadata(self.query, "search_results")
 
     def _process_results(self):
 
         self.query_id = self.search_results.queryId
         self.records_found = self.search_results.recordsFound
         self.records_searched = self.search_results.recordsSearched
-        print "Found {0} Results".format(self.records_found)
+        print "Found {0} Results for {1}".format(self.records_found, self.query.encode('ascii', 'ignore'))
 
 
 
