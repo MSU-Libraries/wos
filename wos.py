@@ -21,6 +21,7 @@ class Wos():
         Keyword arguments:
         client (str) -- search client to initialize: choose "Lite" or "Search"
         """
+        self.citing_metadata = False
         self.total_calls = 0
         self.sleep_time = sleep_time
         self.client = client
@@ -80,7 +81,7 @@ class Wos():
         else:
             print "Search client not established"
 
-    def search(self, qp, rp):
+    def search(self, qp, rp, get_metadata=True):
         """
         Send search query to WOS and return results object.
 
@@ -90,6 +91,7 @@ class Wos():
         """
         self.qp = qp
         self.rp = rp
+        self.get_metadata = get_metadata
         if self.client == "Lite":
             self.search_results = self.search_client.service.search(qp, rp)
             self.query_id = self.search_results.queryId
@@ -239,7 +241,9 @@ class Wos():
         query_language (str) -- "en" the only currently allowed value.
         symbolic_timespan (str) -- a human-readable timespan, e.g. "4weeks", must be null if time_begin and time_end used.
         """
+        self.citing_metadata = True
         self.uid = uid
+        self.query = uid
         self.rp = rp
         self.database_id = database_id
         self.query_language = query_language
@@ -333,7 +337,11 @@ class Wos():
         objectify.deannotate(self.tree, cleanup_namespaces=True)
         for record in self.tree:
             self.meta_record = MetaWos(record, query)
-            self.metadata_collection[category].append(self.meta_record.compile_metadata())
+            article_metadata = self.meta_record.compile_metadata()
+            if self.citing_metadata:
+                article_metadata["source_id"] = self.uid
+                
+            self.metadata_collection[category].append(article_metadata)
 
     def _get_metadata_citation(self, query, category):
         """
@@ -431,21 +439,21 @@ class Wos():
         """
         if pub_year:
             self.qp_title_search = self.query_parameters(u"TI=({0}) AND PY=({1}) AND SO=({2})".format(record_title, pub_year, journal_title), database_id="WOK")
-            self.title_search_results = self.search(self.qp_title_search, self.rp_title_search)
+            self.title_search_results = self.search(self.qp_title_search, self.rp_title_search, get_metadata=False)
             time.sleep(self.sleep_time)
             self.total_calls += 1
             search_count = self.search_results.recordsFound
 
         elif journal_title:
             self.qp_title_search = self.query_parameters(u"TI=({0}) AND SO=({1})".format(record_title, journal_title), database_id="WOK")
-            self.title_search_results = self.search(self.qp_title_search, self.rp_title_search)
+            self.title_search_results = self.search(self.qp_title_search, self.rp_title_search, get_metadata=False)
             time.sleep(self.sleep_time)
             self.total_calls += 1
             search_count = self.search_results.recordsFound
 
         else:
             self.qp_title_search = self.query_parameters(u"TI=({0})".format(record_title), database_id="WOK")
-            self.title_search_results = self.search(self.qp_title_search, self.rp_title_search)
+            self.title_search_results = self.search(self.qp_title_search, self.rp_title_search, get_metadata=False)
             time.sleep(self.sleep_time)
             self.total_calls += 1
             search_count = self.search_results.recordsFound
@@ -456,7 +464,8 @@ class Wos():
     def _run_search(self):
         """Run search page by page until all results are retrieved."""
         self.search_results = self.search_client.service.search(self.qp, self.rp)
-        self._get_metadata(self.query, "search_results")
+        if self.get_metadata:
+            self._get_metadata(self.query, "search_results")
         self.total_calls += 1
         time.sleep(self.sleep_time)
 
@@ -470,7 +479,8 @@ class Wos():
                 self.rp = self.retrieve_parameters(first_record=1+(i)*self.count, count=self.count, 
                                                   sort_field=self.sort_field, view_field=self.view_field, option=self.option)
                 self.retrieve(self.query_id, self.rp)
-                self._get_metadata(self.query, "search_results")
+                if self.get_metadata:
+                    self._get_metadata(self.query, "search_results")
 
     def _process_results(self):
 

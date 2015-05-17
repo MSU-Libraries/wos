@@ -57,7 +57,6 @@ class WosCalls():
 
     def check_session(self):
         """If session has lasted too long, break and restart session."""
-        print self.wos.total_calls
         if self.wos.total_calls > 2000:
 
             self.wos.close_session()
@@ -71,7 +70,7 @@ class WosCalls():
             self.check_session()
 
         print "Process complete."
-        print "Searched {0} UIDs".format(len(self.wos.metadata_collection))
+        print "Searched {0} UIDs".format(len(self.wos.metadata_collection["search_results"]))
 
 
     def get_cited_references(self, get_full_records=True):
@@ -82,13 +81,14 @@ class WosCalls():
         get_full_records (bool) -- if true, perform title search on references with full metadata.
         """
 
-        for record in self.wos.metadata_collection["search_results"]:
+        for index, record in enumerate(self.wos.metadata_collection["search_results"]):
+            print "Record", index
             uid = record["accession_number"]
             self.wos.cited_references(uid, self.wos.retrieve_parameters(option={"key": "Hot", "value": "On"}), database_id="WOS", get_full_records=get_full_records)
             self.check_session()
 
         print "Process complete."
-        print "Searched {0} UIDs".format(len(self.wos.metadata_collection))
+        print "Searched {0} UIDs".format(len(self.wos.metadata_collection["search_results"]))
 
 
     def make_results_tsv(self, search_type, output_file=None):
@@ -103,8 +103,11 @@ class WosCalls():
             with open(output_file, "w") as fh:
                 fh.write("\t".join(self.wos.metadata_collection[search_type][0].keys()) + "\n")
                 for record in self.wos.metadata_collection[search_type]:
+                    fh.write("\t".join([record[i] for i in record]).encode("utf8"))
+                    """
                     for item in record:
                         fh.write((record[item] + "\t").encode("utf8")) 
+                    """
                     fh.write("\n")
 
     def make_cited_records_tsv(self, output_file=None):
