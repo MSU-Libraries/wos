@@ -1,3 +1,4 @@
+data/
 *.pyc
 background
 .DS_Store
