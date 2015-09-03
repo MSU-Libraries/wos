@@ -1,5 +1,5 @@
 
-###Web of Science API
+### Web of Science API
 This code is designed to interact with the WOS API using "premium" access protocols.
 
 -    `wos.py` contains code for interacting with the API directly.
