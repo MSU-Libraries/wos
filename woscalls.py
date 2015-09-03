@@ -1,6 +1,7 @@
 from wos import Wos
 import os
 from datetime import datetime
+import json
 
 class WosCalls():
     """Run searches against the WOS API using the Wos class."""
@@ -73,7 +74,7 @@ class WosCalls():
         print "Searched {0} UIDs".format(len(self.wos.metadata_collection["search_results"]))
 
 
-    def get_cited_references(self, get_full_records=True):
+    def get_cited_references(self, get_full_records=True, json_file=None):
         """
         Get all citations mentioned in a given article.
 
@@ -81,7 +82,13 @@ class WosCalls():
         get_full_records (bool) -- if true, perform title search on references with full metadata.
         """
 
-        for index, record in enumerate(self.wos.metadata_collection["search_results"]):
+        if json_file:
+            search_returns = json.load(open(json_file, "r"))
+
+        else:
+            search_returns = self.wos.metadata_collection["search_results"]
+
+        for index, record in enumerate(search_returns):
             print "Record", index
             uid = record["accession_number"]
             self.wos.cited_references(uid, self.wos.retrieve_parameters(option={"key": "Hot", "value": "On"}), database_id="WOS", get_full_records=get_full_records)
