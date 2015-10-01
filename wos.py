@@ -1,34 +1,4 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-"""
-COPYRIGHT © 2015
-MICHIGAN STATE UNIVERSITY BOARD OF TRUSTEES
-ALL RIGHTS RESERVED
- 
-PERMISSION IS GRANTED TO USE, COPY, CREATE DERIVATIVE WORKS AND REDISTRIBUTE
-THIS SOFTWARE AND SUCH DERIVATIVE WORKS FOR ANY PURPOSE, SO LONG AS THE NAME
-OF MICHIGAN STATE UNIVERSITY IS NOT USED IN ANY ADVERTISING OR PUBLICITY
-PERTAINING TO THE USE OR DISTRIBUTION OF THIS SOFTWARE WITHOUT SPECIFIC,
-WRITTEN PRIOR AUTHORIZATION.  IF THE ABOVE COPYRIGHT NOTICE OR ANY OTHER
-IDENTIFICATION OF MICHIGAN STATE UNIVERSITY IS INCLUDED IN ANY COPY OF ANY
-PORTION OF THIS SOFTWARE, THEN THE DISCLAIMER BELOW MUST ALSO BE INCLUDED.
- 
-THIS SOFTWARE IS PROVIDED AS IS, WITHOUT REPRESENTATION FROM MICHIGAN STATE
-UNIVERSITY AS TO ITS FITNESS FOR ANY PURPOSE, AND WITHOUT WARRANTY BY
-MICHIGAN STATE UNIVERSITY OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
-WITHOUT LIMITATION THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-A PARTICULAR PURPOSE. THE MICHIGAN STATE UNIVERSITY BOARD OF TRUSTEES SHALL
-NOT BE LIABLE FOR ANY DAMAGES, INCLUDING SPECIAL, INDIRECT, INCIDENTAL, OR
-CONSEQUENTIAL DAMAGES, WITH RESPECT TO ANY CLAIM ARISING OUT OF OR IN
-CONNECTION WITH THE USE OF THE SOFTWARE, EVEN IF IT HAS BEEN OR IS HEREAFTER
-ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
- 
-Code written by Devin Higgins
-2015
-(c) Michigan State University Board of Trustees
-Licensed under GNU General Public License (GPL) Version 2.
-"""
 
 from __future__ import division
 from suds.client import Client
@@ -125,6 +95,8 @@ class Wos():
         self.rp = rp
         self.get_metadata = get_metadata
         if self.client == "Lite":
+            self._run_search()
+            """
             self.search_results = self.search_client.service.search(qp, rp)
             self.query_id = self.search_results.queryId
             self.records_returned = self.search_results.records
@@ -132,6 +104,7 @@ class Wos():
             self.records_searched = self.search_results.recordsSearched
             self.uids = [i.uid for i in self.search_results.records]
             self._MakeDict()
+            """
         elif self.client == "Search":
             self._run_search()
 
@@ -190,6 +163,15 @@ class Wos():
             timespan.end = d.isoformat()
         return timespan
 
+    def _view_fields(self):
+        """Add view fields to retrieve parameters object."""
+        
+
+        #TODO: Complete this method.
+        view_fields = self.search_client.factory.create("viewField")
+        for field in self.view_field:
+            view_fields.fieldName = self.view_fields
+            
 
     def retrieve_parameters(self, first_record=1, count=100, sort_field=None, view_field=None, option=None):
         """
@@ -206,10 +188,18 @@ class Wos():
         self.count = count
         self.sort_field = sort_field
         self.view_field = view_field
+
+
         # Use 'key' and 'value' pair of "RecordIDs" and "On" to get list of unique IDs
         self.option = option
 
         self.rp = self.search_client.factory.create("retrieveParameters")
+
+        # viewField seems not to be an option in 
+        if self.view_field is not None and self.client=="Search":
+            self._view_fields()
+
+
 
         if option:
             self.rp.option = option
@@ -365,15 +355,28 @@ class Wos():
         query (str) -- the initial query string for the given search results.
         category (str) -- the container in which to store the gathered metadata. See self.metadata_collection template in __init__.
         """
-        self.tree = etree.fromstring(self.search_results.records)
-        objectify.deannotate(self.tree, cleanup_namespaces=True)
-        for record in self.tree:
-            self.meta_record = MetaWos(record, query)
-            article_metadata = self.meta_record.compile_metadata()
-            if self.citing_metadata:
-                article_metadata["source_id"] = self.uid
-                
-            self.metadata_collection[category].append(article_metadata)
+        # It seems results are returned in a totally different format depending on search client used. 
+        # The 'premium' client ("Search") returns XML of matching records.
+        if self.client == "Search":
+            self.tree = etree.fromstring(self.search_results.records)
+            objectify.deannotate(self.tree, cleanup_namespaces=True)
+            for record in self.tree:
+                self.meta_record = MetaWos(record, query)
+                article_metadata = self.meta_record.compile_metadata()
+                if self.citing_metadata:
+                    article_metadata["source_id"] = self.uid
+                    
+                self.metadata_collection[category].append(article_metadata)
+
+        # The 'lite' client returns a list of dictionary-like objects
+        elif self.client == "Lite":
+            for record in self.search_results.records:
+                article_metadata = dict(record)
+                self.metadata_collection[category].append(article_metadata)
+
+        else:
+            print "Inappropriate method for metadata retrieval: {0}".format(self.client)
+
 
     def _get_metadata_citation(self, query, category):
         """
@@ -458,6 +461,25 @@ class Wos():
             print e
             print "*************************************************"
 
+    def advanced_search(self, data, fields=["author"]):
+        """
+        Run search based on supplied data (containing search fields and values) and a list of terms (drawn from the data) to search on.
+
+        args:
+        data (dict) -- dictionary composed of a key (a field type to search) and value (text to search within the given field)
+
+        kwargs:
+        fields (list) -- set of fields to include in search.
+        """
+        field_abbrevs = {
+                         "author":"AU",
+                         "source":"SO",
+                         "year":"PY",
+        }
+
+        return " AND ".join(["{0}={1}".format(field_abbrevs[field], data[field]) for field in fields])
+
+
     def _run_full_record_search(self, record_title, pub_year=None, journal_title=None):
         """
         Run any of 3 searches, more or less stringent, depending on parameters passed in.
@@ -496,7 +518,7 @@ class Wos():
     def _run_search(self):
         """Run search page by page until all results are retrieved."""
         self.search_results = self.search_client.service.search(self.qp, self.rp)
-        if self.get_metadata:
+        if self.get_metadata and hasattr(self.search_results, "records"):
             self._get_metadata(self.query, "search_results")
         self.total_calls += 1
         time.sleep(self.sleep_time)
