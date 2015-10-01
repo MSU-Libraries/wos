@@ -1,4 +1,3 @@
-
 ## Web of Science API
 This code is designed to interact with the WOS API using "premium" or "lite" access protocols.
 
@@ -26,17 +25,26 @@ The "Search" client is an available at an additional cost, and does provide acce
 
 
     wos.authorize()
+The `authorize` function attempts to authenticate based on IP address. If successful, an authorization token will be attached to all future requests in the session. Output:
 
     Search client authorized.
 
-
-The `authorize` function attempts to authenticate based on IP address. If successful, an authorization token will be attached to all future requests in the session. 
-
+Next a new search can be established:
 
     wos.query_parameters('AU=(Peiretti AND Palmegiano) AND SO=(Animal Feed Science and Technology) AND PY=2004', database_id="WOK")
 
+To do so establish the `query_parameters` object, which should include a query string along with, optionally, a set of parameters. Details on the structure of the query can be found in the API documentation (which can be requested from ThomsonReutuers, but which I'm also making available [here](https://www.msu.edu/~higgi135/WebServicesLiteguide.pdf) (in possibly an outdated version). 
 
+Parameters can be provided as the following keyword arguments:
 
+- **time_begin (str)** -- date in YYYY-MM-DD format.
+- **time_end (str)** -- date in YYYY-MM-DD format.
+- **database_id (str)** -- from the WOS set of database abbreviations. "WOS" correpsonds to the WOS core collection.
+- **query_language (str)** -- "en" the only currently allowed value.
+- **symbolic_timespan (str)** -- a human-readable timespan, e.g. "4weeks", must be null if time_begin and time_end used.
+- **editions (list)** -- TODO list of sub-components of the selected database to use.
+
+Output:
 
     (queryParameters){
        databaseId = "WOK"
@@ -51,32 +59,10 @@ The `authorize` function attempts to authenticate based on IP address. If succes
        queryLanguage = "en"
      }
 
-
-
-First establish the `query_parameters` object, which should include a query string along with, optionally, a set of parameters. Details on the structure of the query can be found in the API documentation (which can be requested from ThomsonReutuers, but which I'm also making available [here](https://www.msu.edu/~higgi135/WebServicesLiteguide.pdf) (in possibly an outdated version).  
-
-Parameters can be provided as the following keyword arguments:
-
-- **time_begin (str)** -- date in YYYY-MM-DD format.
-- **time_end (str)** -- date in YYYY-MM-DD format.
-- **database_id (str)** -- from the WOS set of database abbreviations. "WOS" correpsonds to the WOS core collection.
-- **query_language (str)** -- "en" the only currently allowed value.
-- **symbolic_timespan (str)** -- a human-readable timespan, e.g. "4weeks", must be null if time_begin and time_end used.
-- **editions (list)** -- TODO list of sub-components of the selected database to use.
+Next, establish what results to return with the `retrieve_parameters` object.
 
 
     wos.retrieve_parameters()
-
-
-
-
-    (retrieveParameters){
-       firstRecord = 1
-       count = 100
-       sortField[] = <empty>
-     }
-
-
 
 The `retrieve_parameters` allow for some control of the data that is returned.  
 
@@ -84,14 +70,23 @@ The `retrieve_parameters` allow for some control of the data that is returned.
 - **count (int)** -- Number of records to return (maximum 100).
 - **sort_field (list)** -- TODO Field to sort by (should be WOS field abbreviation).
 
+Output:
+
+    (retrieveParameters){
+       firstRecord = 1
+       count = 100
+       sortField[] = <empty>
+     }
+
+You can then carry out the search, using the query and retrieval parameters you just created like this:
 
     wos.search(wos.qp, wos.rp)
 
+Output:
+
     Found 1 Results for AU=(Peiretti AND Palmegiano) AND SO=(Animal Feed Science and Technology) AND PY=2004
 
-
-
-
+Results can be found in the wos.search_results.records object, if any results were returned. More generally, wos.search_results can be used to find info about the response, including number of results. Output:
 
     (searchResults){
        queryId = "1"
@@ -197,13 +192,9 @@ The `retrieve_parameters` allow for some control of the data that is returned.
      }
 
 
-
-Run the search by calling the `search` function with the query parameters and retrieve parameters objects as arguments (`wos.qp` and `wos.rp` respectively). 
-
-Results can be found in the `wos.search_results.records` object, if any results were returned. More generally, `wos.search_results` can be used to find info about the response, including number of results.  
-
 Additional methods can be used to get cited references as well as citing articles if the "Search" client is used.
 
+Code from above:
 
     from wos import Wos
     wos = Wos(client="Lite")
@@ -212,16 +203,18 @@ Additional methods can be used to get cited references as well as citing article
     wos.retrieve_parameters(view_field=["title", "name"])
     wos.search(wos.qp, wos.rp)
 
-The above code should return 1 result and can be used as a test to ensure code is working properly.
+The above code should return 1 result and can be used as a test to ensure search is working properly.
 
 ### Automating Searches
 
-The `WosCalls` class provides a means of interacting with the API 1 level up. That is, lists of search strings or sets of search parameters can be provided to run in batch. This functionality is still very much work in progress.
+The `WosCalls` class provides a means of interacting with the API at a higher level. That is, lists of search strings or sets of search parameters can be provided to run in batch. **This functionality is still very much work in progress.**
 
 
     from woscalls import WosCalls
     wosc = WosCalls(search_queries=bs.searches, database_id="WOK")
     wosc.get_all_search_results()
+
+In this case the `bs.searches` object contains a Python `list` of 10 search strings, each of which is being carried out in sequence. Output:
 
     Search client authorized.
     Found 1 Results for AU=(Lambertsen) AND PY=1966 AND SO=(Acta Agric* Scand*)
@@ -237,26 +230,25 @@ The `WosCalls` class provides a means of interacting with the API 1 level up. Th
     Process complete.
     Returned 10 records
 
-
-The `WosCalls` class is additionally a place to house content-specific methods build on `Wos`. See `run_phylo_process` method as it develops.
+The `WosCalls` class is additionally a place to house content-specific methods that build on the `Wos` clas. See `run_phylo_process` method as it develops.
 
 ### Additional Information
 
 The `BuildSearch` class is currently quite content specific but could in principle be broadened to allow for automatically generating searches from data in other formats, such as CSV or JSON. Currently the algorithm below assumes a very specific data structure to work.
 
-
     from buildsearch import BuildSearch
     bs = BuildSearch("data/ohlrogge/ohlrogge_test_10.txt")
     bs.make_search_list() # from here the object bs.searches can be used in WosCalls()
 
+Output:
+
     File loaded.
 
-
+Check `bs.searches` to view objects:
 
     bs.searches
 
-
-
+Output:
 
     [u'AU=(Lambertsen) AND PY=1966 AND SO=(Acta Agric* Scand*)',
      u'AU=(Bentes) AND PY=1986 AND SO=(Acta Amazonica)',
@@ -271,11 +263,9 @@ The `BuildSearch` class is currently quite content specific but could in princip
 
 
 
-The `bs.searches` object contains a list of searches, suitable to pass as an argument in the `WosCalls` class.
+This list of searches, suitable to pass as an argument in the `WosCalls` class.
 
 #### Get in touch!
 
 If I can be of help in using this code, or if you have suggestions for improvement, please do contact me.
 
-
-    
