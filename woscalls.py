@@ -28,17 +28,52 @@ class WosCalls():
         self.wos.authorize()
         self.wos.retrieve_parameters()
 
+
     def get_all_search_results(self):
         """Return all results from queries defined in __init__."""
+        
+        # Keep track of total result count across all searches.
         self.total_results = 0
+
         for search_query in self.search_queries:
-            self.wos.query_parameters(search_query, database_id=self.database_id)
-            self.wos.search(self.wos.qp, self.wos.retrieve_parameters())
-            self.total_results += self.wos.records_found
-            self.check_session()
+            self.__run_search(search_query)
 
         print "Process complete."
         print "Returned {0} records".format(self.total_results)
+
+
+    def __run_search(self, query):
+        """
+        Communicate with the WOS class to run a search.
+
+        args:
+            query (str): complete and well-formatted search query.
+        """
+        self.wos.query_parameters(search_query, database_id=self.database_id)
+        self.wos.search(self.wos.qp, self.wos.retrieve_parameters())
+        self.total_results += self.wos.records_found
+        # WOS imposes a limit on number of searches per session -- check after each query and restart session is necessary.
+        self.check_session()
+
+
+    def find_exact_match(self):
+        """Search for known item.
+
+        If more than one result returned, sift through results to find most appropriate match. If one record can't be isolated
+        store all best guesses at matches.
+        """
+        for search_query in self.search_queries:
+            self.__run_search(search_query)
+
+            # Return 
+            if self.wos.records_found == 1:
+
+
+            for record in self.search_results.records:
+                article_metadata = dict(record)
+                self.metadata_collection[category].append(article_metadata)
+
+
 
     def run_phylo_process(self):
         """
@@ -47,6 +82,7 @@ class WosCalls():
         self.total_results = 0
         for search_term_set in self.search_term_sets:
             query = self.wos.advanced_search(search_term_set, fields=["author", "source", ""])
+
 
     def check_session(self):
         """If session has lasted too long, break and restart session."""

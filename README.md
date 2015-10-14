@@ -25,7 +25,7 @@ The "Search" client is an available at an additional cost, and does provide acce
 
 
     wos.authorize()
-The `authorize` function attempts to authenticate based on IP address. If successful, an authorization token will be attached to all future requests in the session. Output:
+The `authorize` function attempts to authenticate based on IP address. If successful, an authorization token will be attached to all future requests in the session. **Output**:
 
     Search client authorized.
 
@@ -44,7 +44,7 @@ Parameters can be provided as the following keyword arguments:
 - **symbolic_timespan (str)** -- a human-readable timespan, e.g. "4weeks", must be null if time_begin and time_end used.
 - **editions (list)** -- TODO list of sub-components of the selected database to use.
 
-Output:
+**Output**:
 
     (queryParameters){
        databaseId = "WOK"
@@ -70,7 +70,7 @@ The `retrieve_parameters` allow for some control of the data that is returned.
 - **count (int)** -- Number of records to return (maximum 100).
 - **sort_field (list)** -- TODO Field to sort by (should be WOS field abbreviation).
 
-Output:
+**Output**:
 
     (retrieveParameters){
        firstRecord = 1
@@ -82,11 +82,11 @@ You can then carry out the search, using the query and retrieval parameters you 
 
     wos.search(wos.qp, wos.rp)
 
-Output:
+**Output**:
 
     Found 1 Results for AU=(Peiretti AND Palmegiano) AND SO=(Animal Feed Science and Technology) AND PY=2004
 
-Results can be found in the wos.search_results.records object, if any results were returned. More generally, wos.search_results can be used to find info about the response, including number of results. Output:
+Results can be found in the wos.search_results.records object, if any results were returned. More generally, wos.search_results can be used to find info about the response, including number of results. **Output**:
 
     (searchResults){
        queryId = "1"
@@ -214,7 +214,7 @@ The `WosCalls` class provides a means of interacting with the API at a higher le
     wosc = WosCalls(search_queries=bs.searches, database_id="WOK")
     wosc.get_all_search_results()
 
-In this case the `bs.searches` object contains a Python `list` of 10 search strings, each of which is being carried out in sequence. Output:
+In this case the `bs.searches` object contains a Python `list` of 10 search strings, each of which is being carried out in sequence. **Output**:
 
     Search client authorized.
     Found 1 Results for AU=(Lambertsen) AND PY=1966 AND SO=(Acta Agric* Scand*)
@@ -240,7 +240,7 @@ The `BuildSearch` class is currently quite content specific but could in princip
     bs = BuildSearch("data/ohlrogge/ohlrogge_test_10.txt")
     bs.make_search_list() # from here the object bs.searches can be used in WosCalls()
 
-Output:
+**Output**:
 
     File loaded.
 
@@ -248,7 +248,7 @@ Check `bs.searches` to view objects:
 
     bs.searches
 
-Output:
+**Output**:
 
     [u'AU=(Lambertsen) AND PY=1966 AND SO=(Acta Agric* Scand*)',
      u'AU=(Bentes) AND PY=1986 AND SO=(Acta Amazonica)',
