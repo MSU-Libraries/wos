@@ -39,9 +39,9 @@ class MetaWosLite():
         """
         self.extracted_metadata["wos_authors"] = self.get_authors()
         self.extracted_metadata["wos_title"] = self.get_title()
-        self.extracted_metadata["wos_ids"] = self.get_ids()
+        self.extracted_metadata.update(self.get_ids())
         self.extracted_metadata["wos_uid"] = self.get_wos_uid()
-        self.extracted_metadata["wos_source_data"] = self.get_source()
+        self.extracted_metadata.update(self.get_source())
         return self.extracted_metadata
 
     def get_authors(self):

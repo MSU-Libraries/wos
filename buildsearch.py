@@ -30,13 +30,15 @@ class OhlroggeSearch():
                               "source":3,
                               "volume":5,
                               "page":6,
+                              "result_count":7,
+                              "plant_count":8,
                               }
 
 
     def make_search_list(self):
         """Read file to build WOS-formatted list of searches."""
         self.searches = []
-        with codecs.open(self.tsv_location, "r", "utf-8") as tsv:
+        with codecs.open(self.tsv_location, "r", "latin-1") as tsv:
             # Store first line of file as headings.
             self.headings = tsv.readline()
             for line in tsv:
@@ -49,11 +51,14 @@ class OhlroggeSearch():
         and add to a list of dictionary of search objects.
         """
         self.search_terms = []
-        with codecs.open(self.tsv_location, "r", "utf-8") as tsv:
+        i=0
+        with codecs.open(self.tsv_location, "r", "latin-1") as tsv:
             for line in tsv:
+                i+=1
                 self.__extract_search_terms(line)
                 self.search_components["query"] = self._build_query()
                 self.search_terms.append(self.search_components)
+        print "Extracted {0} lines".format(i)
 
 
     def __extract_search_terms(self, line):
@@ -83,7 +88,9 @@ class OhlroggeSearch():
         self.__get_source(line_values[self.field_indices["source"]])
         self.__get_volume(line_values[self.field_indices["volume"]])
         self.__get_page(line_values[self.field_indices["page"]])          
-        self.__get_id(line_values[self.field_indices["id"]])     
+        self.__get_id(line_values[self.field_indices["id"]])  
+        self.__get_field("result_count")
+        self.__get_field("plant_count")   
 
     def __get_id(self, value):
         """
@@ -102,7 +109,11 @@ class OhlroggeSearch():
         args:
             value(str) -- data from row generated in __extract_search_terms.
         """
-        self.search_components["year"] = value
+        if value.strip():
+            self.search_components["year"] = value
+        else:
+            self.search_components["year"] = "9999"
+
 
     def __get_author(self, value):
         """
@@ -113,8 +124,8 @@ class OhlroggeSearch():
         """
         # Remove extraneous punctuation from author field.
         clean_value = value.strip().replace(",", "").replace(";", "").replace(".", "***").replace("et al", "").replace('"', '')
-        author_last_names = [name for name in clean_value.split() if len(name) > 2 and "***" not in name]
-        self.search_components["author"] = "({0})".format(" AND ".join(author_last_names))
+        author_last_names = [name.replace("***", "") for name in clean_value.split() if len(name) > 2 and "***" not in name or len(name) > 10]
+        self.search_components["author"] = u"({0})".format(" AND ".join(author_last_names))
 
     def __get_source(self, value):
         """
@@ -124,7 +135,7 @@ class OhlroggeSearch():
             value(str) -- data from row generated in __extract_search_terms.
         """
         # Replace '.' with '*' to allow for wildcard searching.
-        self.search_components["source"] = "({0})".format(" ".join([word.replace(".", "*") for word in value.split()]))
+        self.search_components["source"] = u"({0})".format(" ".join([word.replace(".", "*") for word in value.split()]))
 
     def __get_volume(self, value):
         """
@@ -152,11 +163,21 @@ class OhlroggeSearch():
         Returns:
             Search query string formatted to be included in WOS query parameters.
         """
-        author_search = "AU=" + self.search_components["author"]
-        year_search = "PY=" + self.search_components["year"]
-        source_search = "SO=" + self.search_components["source"]
-        return " AND ".join([author_search, year_search, source_search])
+        author_search = u"AU=" + self.search_components["author"]
+        if self.search_components["year"] == "9999":
+            year_search = None
+        else:
+            year_search = u"PY=" + self.search_components["year"]
+        source_search = u"SO=" + self.search_components["source"]
+        return u" AND ".join([s for s in [author_search, year_search, source_search] if s is not None])
 
+    def __get_field(self, field):
+        """Generic get field function.
+
+        args:
+            field(str): data to be added.
+        """
+        self.search_components[field] = self.field_indices[field]
 
     def __check_file(self):
         """Check if file exists."""
