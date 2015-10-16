@@ -60,13 +60,19 @@ class WosCalls():
         """Search for known item.
 
         If more than one result returned, sift through results to find most appropriate match. If one record can't be isolated
-        store all best guesses at matches.
+        store all best guesses as matches for further manual editing.
         """
-        for search_query in self.search_queries:
-            self.__run_search(search_query)
+        self.article_data = []
+        for search_data in self.search_term_sets:
+            
+            self.search_data_update = search_data.copy()
+
+            self.__run_search(search_data["query"])
 
             # Return 
             if self.wos.records_found == 1:
+                metadata = dict(self.search_results.records)
+                
 
 
             for record in self.search_results.records:

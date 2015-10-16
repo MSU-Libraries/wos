@@ -40,8 +40,8 @@ class OhlroggeSearch():
             # Store first line of file as headings.
             self.headings = tsv.readline()
             for line in tsv:
-                self.extract_search_terms(line)
-                self._build_query()
+                self.__extract_search_terms(line)
+                self.searches.append(self._build_query())
 
     def make_search_dict(self):
         """
@@ -52,6 +52,7 @@ class OhlroggeSearch():
         with codecs.open(self.tsv_location, "r", "utf-8") as tsv:
             for line in tsv:
                 self.__extract_search_terms(line)
+                self.search_components["query"] = self._build_query()
                 self.searches.append(self.search_components)
 
 
@@ -77,7 +78,7 @@ class OhlroggeSearch():
         # Use field_indices table above to get the appropriate index for each
         # type of data, e.g. in the list line_values, the correct index for
         # "author" should be stored in self.field_indices["author"].
-        self.__get_field("year", line_value[self.field_indices["year"]])
+        self.__get_year(line_value[self.field_indices["year"]])
         self.__get_author(line_value[self.field_indices["author"]])
         self.__get_source(line_value[self.field_indices["source"]])
         self.__get_volume(line_value[self.field_indices["volume"]])
@@ -144,11 +145,17 @@ class OhlroggeSearch():
         self.search_components["page"] = value.strip()
 
     def _build_query(self):
-        """Take created search components and merge them into 1 search string."""
+        """Take created search components and merge them into 1 search string.
+
+        This particular query structure applies principally to the Ohlrogge dataset.
+
+        Returns:
+            Search query string formatted to be included in WOS query parameters.
+        """
         author_search = "AU=" + self.search_components["author"]
         year_search = "PY=" + self.search_components["year"]
         source_search = "SO=" + self.search_components["source"]
-        self.searches.append(" AND ".join([author_search, year_search, source_search]))
+        return " AND ".join([author_search, year_search, source_search]))
 
 
     def __check_file(self):
