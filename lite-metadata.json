@@ -1,0 +1,73 @@
+{'authors': [(labelValuesPair){
+     label = "Authors"
+     value[] = 
+        "Peiretti, PG",
+        "Palmegiano, GB",
+        "Masoero, G",
+   }], 'keywords': [(labelValuesPair){
+     label = "Keywords"
+     value[] = 
+        "lipids",
+        "forage",
+        "foodstuffs",
+        "ruminant",
+        "nutrition",
+   }], 'other': [(labelValuesPair){
+     label = "Contributor.ResearcherID.Names"
+     value[] = 
+        "Peiretti, Pier Giorgio",
+        "Peiretti, Pier Giorgio",
+   }, (labelValuesPair){
+     label = "Contributor.ResearcherID.ResearcherIDs"
+     value[] = 
+        "B-6871-2013",
+        None,
+   }, (labelValuesPair){
+     label = "Identifier.Doi"
+     value[] = 
+        "10.1016/j.anifeedsci.2004.07.001",
+   }, (labelValuesPair){
+     label = "Identifier.Ids"
+     value[] = 
+        "863ND",
+   }, (labelValuesPair){
+     label = "Identifier.Issn"
+     value[] = 
+        "0377-8401",
+   }, (labelValuesPair){
+     label = "Identifier.Xref_Doi"
+     value[] = 
+        "10.1016/j.anifeedsci.2004.07.001",
+   }, (labelValuesPair){
+     label = "ResearcherID.Disclaimer"
+     value[] = 
+        "ResearcherID data provided by Thomson Reuters",
+   }], 'source': [(labelValuesPair){
+     label = "Issue"
+     value[] = 
+        "3-4",
+   }, (labelValuesPair){
+     label = "Pages"
+     value[] = 
+        "293-299",
+   }, (labelValuesPair){
+     label = "Published.BiblioDate"
+     value[] = 
+        "OCT 15",
+   }, (labelValuesPair){
+     label = "Published.BiblioYear"
+     value[] = 
+        "2004",
+   }, (labelValuesPair){
+     label = "SourceTitle"
+     value[] = 
+        "ANIMAL FEED SCIENCE AND TECHNOLOGY",
+   }, (labelValuesPair){
+     label = "Volume"
+     value[] = 
+        "116",
+   }], 'title': [(labelValuesPair){
+     label = "Title"
+     value[] = 
+        "Chemical composition, organic matter digestibility and fatty acid content of evening primrose (Oenothera paradoxa) during its growth cycle",
+   }], 'uid': WOS:000224567700011}

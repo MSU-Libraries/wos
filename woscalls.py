@@ -1,10 +1,9 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 from wos import Wos
 import os
 from datetime import datetime
 import json
+from metawoslite import MetaWosLite
+from sift import SiftSearchResults
 
 
 class WosCalls():
@@ -20,7 +19,7 @@ class WosCalls():
         """
         self.search_queries = search_queries
         self.search_term_sets = search_term_sets
-        if not search_queries and not search_terms_sets:
+        if not search_queries and not search_term_sets:
             print "No searches provided. Include either 'search_queries' or 'search_terms' in argument."
         self.search_client = search_client
         self.database_id = database_id
@@ -49,7 +48,7 @@ class WosCalls():
         args:
             query (str): complete and well-formatted search query.
         """
-        self.wos.query_parameters(search_query, database_id=self.database_id)
+        self.wos.query_parameters(query, database_id=self.database_id)
         self.wos.search(self.wos.qp, self.wos.retrieve_parameters())
         self.total_results += self.wos.records_found
         # WOS imposes a limit on number of searches per session -- check after each query and restart session is necessary.
@@ -62,22 +61,46 @@ class WosCalls():
         If more than one result returned, sift through results to find most appropriate match. If one record can't be isolated
         store all best guesses as matches for further manual editing.
         """
-        self.article_data = []
+        self.total_results = 0
+        self.article_data = {}
         for search_data in self.search_term_sets:
             
+            all_results = []
             self.search_data_update = search_data.copy()
 
             self.__run_search(search_data["query"])
 
-            # Return 
+            # Return 1 result, assume with reasonable confidence this is the
+            # 'correct' hit.
             if self.wos.records_found == 1:
-                metadata = dict(self.search_results.records)
-                
+                metalite = MetaWosLite(dict(self.wos.search_results.records[0]))
+                wos_metadata = metalite.get_metadata()
+                self.search_data_update.update(wos_metadata)
+                all_results = [self.search_data_update]
 
+            elif self.wos.records_found > 1:
+                for search_record in self.wos.search_results.records:
 
-            for record in self.search_results.records:
-                article_metadata = dict(record)
-                self.metadata_collection[category].append(article_metadata)
+                    metalite = MetaWosLite(dict(search_record))
+                    wos_metadata = metalite.get_metadata()
+                    sifter = SiftSearchResults(self.search_data_update, wos_metadata)
+                    sift_result = sifter.assess_match()
+                    print "----{0}".format(sift_result)
+                    if sift_result == "exact_match":
+                        self.search_data_update.update(wos_metadata)
+                        all_results = [self.search_data_update]
+                        break
+
+                    elif sift_result == "probable_match":
+                        pmatch = self.search_data_update.copy()
+                        pmatch.update(wos_metadata)
+                        all_results.append(pmatch)
+
+                print "----Storing {0} record(s)".format(len(all_results))
+
+            self.article_data[search_data["id"]] = all_results
+
+        print self.article_data
 
 
 
