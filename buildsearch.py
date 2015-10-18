@@ -1,5 +1,7 @@
+# -*- coding: utf-8 -*-
 import os
 import codecs
+
 
 class OhlroggeSearch():
     """Use specifically formatted bibliographic data to build a search for WOS.
@@ -38,7 +40,7 @@ class OhlroggeSearch():
     def make_search_list(self):
         """Read file to build WOS-formatted list of searches."""
         self.searches = []
-        with codecs.open(self.tsv_location, "r", "latin-1") as tsv:
+        with codecs.open(self.tsv_location, "r", "utf-8") as tsv:
             # Store first line of file as headings.
             self.headings = tsv.readline()
             for line in tsv:
@@ -52,7 +54,7 @@ class OhlroggeSearch():
         """
         self.search_terms = []
         i=0
-        with codecs.open(self.tsv_location, "r", "latin-1") as tsv:
+        with codecs.open(self.tsv_location, "r", "utf-8") as tsv:
             for line in tsv:
                 i+=1
                 self.__extract_search_terms(line)
@@ -79,6 +81,7 @@ class OhlroggeSearch():
         """
 
         line_values = line.split("\t")
+        self.line_values = line_values
 
         # Use field_indices table above to get the appropriate index for each
         # type of data, e.g. in the list line_values, the correct index for
@@ -109,8 +112,10 @@ class OhlroggeSearch():
         args:
             value(str) -- data from row generated in __extract_search_terms.
         """
-        if value.strip():
-            self.search_components["year"] = value
+        if value == "?" or value == "uu":
+            self.search_components["year"] = "9999"
+        elif value.strip():
+            self.search_components["year"] = value[:4]
         else:
             self.search_components["year"] = "9999"
 
@@ -123,9 +128,10 @@ class OhlroggeSearch():
             value(str) -- data from row generated in __extract_search_terms.
         """
         # Remove extraneous punctuation from author field.
-        clean_value = value.strip().replace(",", "").replace(";", "").replace(".", "***").replace("et al", "").replace('"', '')
-        author_last_names = [name.replace("***", "") for name in clean_value.split() if len(name) > 2 and "***" not in name or len(name) > 10]
+        clean_value = value.strip().replace("et al.", "").replace("et al", "").replace(",", "").replace(";", "").replace(".", "***").replace('"', '')
+        author_last_names = [name.replace("***", "") for name in clean_value.split() if len(name) > 2 and "***" not in name or len(name) > 10 or (len(name.strip()) > 1 and not name.isupper())]
         self.search_components["author"] = u"({0})".format(" AND ".join(author_last_names))
+        self.search_components["orig_author"] = value
 
     def __get_source(self, value):
         """
@@ -177,7 +183,7 @@ class OhlroggeSearch():
         args:
             field(str): data to be added.
         """
-        self.search_components[field] = self.field_indices[field]
+        self.search_components[field] = self.line_values[self.field_indices[field]]
 
     def __check_file(self):
         """Check if file exists."""
@@ -186,3 +192,4 @@ class OhlroggeSearch():
 
         else:
             print "File loaded."
+

@@ -4,6 +4,7 @@ from datetime import datetime
 import json
 from metawoslite import MetaWosLite
 from sift import SiftSearchResults
+import time
 
 
 class WosCalls():
@@ -63,45 +64,65 @@ class WosCalls():
         """
         self.total_results = 0
         self.article_data = {}
+        count = 0
+        errors = 0
         for search_data in self.search_term_sets:
-            
+            count += 1
+            print count,
             all_results = []
             self.search_data_update = search_data.copy()
+            try:
+                self.__run_search(search_data["query"])
 
-            self.__run_search(search_data["query"])
-
-            # Return 1 result, assume with reasonable confidence this is the
-            # 'correct' hit.
-            if self.wos.records_found == 1:
-                metalite = MetaWosLite(dict(self.wos.search_results.records[0]))
-                wos_metadata = metalite.get_metadata()
-                self.search_data_update.update(wos_metadata)
-                all_results = [self.search_data_update]
-
-            elif self.wos.records_found > 1:
-                for search_record in self.wos.search_results.records:
-
-                    metalite = MetaWosLite(dict(search_record))
+                # Return 1 result, assume with reasonable confidence this is the
+                # 'correct' hit.
+                if self.wos.records_found == 1:
+                    metalite = MetaWosLite(dict(self.wos.search_results.records[0]))
                     wos_metadata = metalite.get_metadata()
-                    sifter = SiftSearchResults(self.search_data_update, wos_metadata)
-                    sift_result = sifter.assess_match()
-                    print "----{0}".format(sift_result)
-                    if sift_result == "exact_match":
-                        self.search_data_update.update(wos_metadata)
-                        all_results = [self.search_data_update]
-                        break
+                    self.search_data_update.update(wos_metadata)
+                    # TODO Fix result count. It always comes out 1.
+                    self.search_data_update["wos_result_count"] = 1
+                    all_results = [self.search_data_update]
 
-                    elif sift_result == "probable_match":
-                        pmatch = self.search_data_update.copy()
-                        pmatch.update(wos_metadata)
-                        all_results.append(pmatch)
 
-                print "----Storing {0} record(s)".format(len(all_results))
+                # With more than 1 results, attempt to sift to find 1 correct, or several
+                # plausible results to store.
+                elif self.wos.records_found > 1:
+                    result_count = 0
+                    for search_record in self.wos.search_results.records:
 
-            self.article_data[search_data["id"]] = all_results
+                        metalite = MetaWosLite(dict(search_record))
+                        wos_metadata = metalite.get_metadata()
+                        sifter = SiftSearchResults(self.search_data_update, wos_metadata)
+                        sift_result = sifter.assess_match()
+                        print "----{0}".format(sift_result)
+                        if sift_result == "exact_match":
+                            self.search_data_update.update(wos_metadata)
+                            result_count = 1
+                            all_results = [self.search_data_update]
+                            break
 
-        print self.article_data
+                        elif sift_result == "probable_match":
+                            result_count += 1
+                            pmatch = self.search_data_update.copy()
+                            pmatch.update(wos_metadata)
+                            
+                            all_results.append(pmatch)
 
+                    print "----Storing {0} record(s)".format(len(all_results))
+                else:
+                    all_results = [self.search_data_update]
+
+                self.article_data[search_data["id"]] = all_results
+            
+            except Exception as e:
+                print e
+                if "Throttle" in e or "throttle" in e:
+                    time.sleep(60)
+                errors += 1
+
+        #print self.article_data
+        print "Processed {0} records, Encountered {1} errors.".format(count, errors)
 
 
     def run_phylo_process(self):

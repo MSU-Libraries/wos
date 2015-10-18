@@ -18,14 +18,19 @@ class SiftSearchResults():
             (str): assessment of likelihood two records match.
         """
         print "----Comparing {0}".format(self.wos_metadata["wos_title"])
-        vol_match = self.check_volume() 
+        vol_match = False
+        page_match = False
+        if "Volume" in self.wos_metadata:
+            vol_match = self.check_volume() 
         #issue_match = self.check_issue()
-        page_match = self.check_page()
+
+        if "Pages" in self.wos_metadata:
+            page_match = self.check_page()
 
         if all([vol_match, page_match]):
             return "exact_match"
 
-        elif vol_match:
+        elif vol_match or page_match:
             return "probable_match"
 
         else:
@@ -33,16 +38,16 @@ class SiftSearchResults():
 
     def check_volume(self):
         """Check it issue from data sources match."""
-        return self.original_metadata["volume"] == self.wos_metadata["wos_source_data"]["Volume"][0]
+        return self.original_metadata["volume"] == self.wos_metadata["Volume"][0]
 
     def check_issue(self):
         """Check it issue from data sources match."""
-        return self.original_metadata["issue"] == self.wos_metadata["wos_source_data"]["Issue"][0]
+        return self.original_metadata["issue"] == self.wos_metadata["Issue"][0]
 
     def check_page(self):
         """Check it issue from data sources match."""
-        page_part_match = any([page in self.wos_metadata["wos_source_data"]["Pages"][0].split("-") for page in self.original_metadata["page"].split("-")])
-        return self.original_metadata["page"] == self.wos_metadata["wos_source_data"]["Pages"][0] or page_part_match
+        page_part_match = any([page in self.wos_metadata["Pages"][0].split("-") for page in self.original_metadata["page"].split("-")])
+        return self.original_metadata["page"] == self.wos_metadata["Pages"][0] or page_part_match
 
 
 

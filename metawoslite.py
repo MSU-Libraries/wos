@@ -58,7 +58,7 @@ class MetaWosLite():
         returns:
             (list): containing each title (usually only 1).
         """
-        return unicode(self.metadata["title"][0]["value"])
+        return unicode(self.metadata["title"][0]["value"][0])
 
     def get_ids(self):
         """Pull identifiers from metadata.
