@@ -61,7 +61,7 @@ class MetaWos():
         """Get element value and store."""
         for d in self.data_source:
             if self.element == "date":
-                #print d.attrib
+                # print d.attrib
                 value = d.get("pubyear")
             elif self.element == "times_cited":
                 value = d.get("local_count")
@@ -82,8 +82,6 @@ class MetaWos():
         if not self.data:
             self.data.append("NONE")
 
-
-
     def _get_doi(self, element):
         """
         Check if ID is DOI and get value if so.
@@ -93,10 +91,7 @@ class MetaWos():
         """
         id_type = element.get("type")
         if id_type == "doi" or id_type == "xref_doi":
-          
             return element.get("value")
 
         else:
-
-            return 
-
+            return

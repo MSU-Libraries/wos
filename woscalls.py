@@ -28,10 +28,9 @@ class WosCalls():
         self.wos.authorize()
         self.wos.retrieve_parameters()
 
-
     def get_all_search_results(self):
         """Return all results from queries defined in __init__."""
-        
+
         # Keep track of total result count across all searches.
         self.total_results = 0
 
@@ -40,7 +39,6 @@ class WosCalls():
 
         print "Process complete."
         print "Returned {0} records".format(self.total_results)
-
 
     def __run_search(self, query):
         """
@@ -52,15 +50,15 @@ class WosCalls():
         self.wos.query_parameters(query, database_id=self.database_id)
         self.wos.search(self.wos.qp, self.wos.retrieve_parameters())
         self.total_results += self.wos.records_found
-        # WOS imposes a limit on number of searches per session -- check after each query and restart session is necessary.
+        # WOS imposes a limit on number of searches per session -- check after each query
+        # and restart session if necessary.
         self.check_session()
-
 
     def find_exact_match(self):
         """Search for known item.
 
-        If more than one result returned, sift through results to find most appropriate match. If one record can't be isolated
-        store all best guesses as matches for further manual editing.
+        If more than one result returned, sift through results to find most appropriate match.
+        If one record can't be isolated store all best guesses as matches for further manual editing.
         """
         self.total_results = 0
         self.article_data = {}
@@ -84,7 +82,6 @@ class WosCalls():
                     self.search_data_update["wos_result_count"] = 1
                     all_results = [self.search_data_update]
 
-
                 # With more than 1 results, attempt to sift to find 1 correct, or several
                 # plausible results to store.
                 elif self.wos.records_found > 1:
@@ -106,7 +103,7 @@ class WosCalls():
                             result_count += 1
                             pmatch = self.search_data_update.copy()
                             pmatch.update(wos_metadata)
-                            
+
                             all_results.append(pmatch)
 
                     print "----Storing {0} record(s)".format(len(all_results))
@@ -169,18 +166,20 @@ class WosCalls():
         for index, record in enumerate(search_returns):
             print "Record", index
             uid = record["accession_number"]
-            self.wos.cited_references(uid, self.wos.retrieve_parameters(option={"key": "Hot", "value": "On"}), database_id="WOS", get_full_records=get_full_records)
+            self.wos.cited_references(uid, self.wos.retrieve_parameters(option={"key": "Hot", "value": "On"}),
+                                      database_id="WOS",
+                                      get_full_records=get_full_records)
             self.check_session()
 
         print "Process complete."
         print "Searched {0} UIDs".format(len(self.wos.metadata_collection["search_results"]))
 
-
     def make_results_tsv(self, search_type, output_file=None):
-
+        """Produce TSV output based on metadata gathered."""
         if not output_file:
-            output_file = os.path.join(".", "{0}_results_{1}.tsv".format(search_type, datetime.now().strftime("%Y-%m-%d-%H%M")))
-        
+            output_file = os.path.join(".", "{0}_results_{1}.tsv".format(search_type, datetime.now()
+                                       .strftime("%Y-%m-%d-%H%M")))
+
         if not self.wos.metadata_collection[search_type]:
             print "No search results to process."
 
@@ -191,7 +190,7 @@ class WosCalls():
                     fh.write("\t".join([record[i] for i in record]).encode("utf8"))
                     """
                     for item in record:
-                        fh.write((record[item] + "\t").encode("utf8")) 
+                        fh.write((record[item] + "\t").encode("utf8"))
                     """
                     fh.write("\n")
 

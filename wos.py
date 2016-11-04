@@ -353,9 +353,10 @@ class Wos():
 
         Positional arguments:
         query (str) -- the initial query string for the given search results.
-        category (str) -- the container in which to store the gathered metadata. See self.metadata_collection template in __init__.
+        category (str) -- the container in which to store the gathered metadata.
+            See self.metadata_collection template in __init__.
         """
-        # It seems results are returned in a totally different format depending on search client used. 
+        # It seems results are returned in a totally different format depending on search client used.
         # The 'premium' client ("Search") returns XML of matching records.
         if self.client == "Search":
             self.tree = etree.fromstring(self.search_results.records)
@@ -365,7 +366,7 @@ class Wos():
                 article_metadata = self.meta_record.compile_metadata()
                 if self.citing_metadata:
                     article_metadata["source_id"] = self.uid
-                    
+
                 self.metadata_collection[category].append(article_metadata)
 
         # The 'lite' client returns a list of dictionary-like objects
@@ -376,7 +377,6 @@ class Wos():
 
         else:
             print "Inappropriate method for metadata retrieval: {0}".format(self.client)
-
 
     def _get_metadata_citation(self, query, category):
         """
