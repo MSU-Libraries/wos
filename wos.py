@@ -35,7 +35,7 @@ class Wos():
         self.metadata_collection = {"search_results": [],
                                     "forward_citations": [],
                                     "backward_citations": [],
-                                    "hot_records":[],}
+                                    "hot_records": [], }
         self.qp = None
         self.rp = None
         self.uids = []
@@ -347,7 +347,7 @@ class Wos():
                 if subelement.tag == uid_tag:
                     self.uids.append((subelement.text, self.query))
 
-    def _get_metadata(self, query, category):
+    def _get_metadata(self, query, category, crossref=False):
         """
         Retrieve metadata from all search results and store in dictionary of elements.
 
@@ -358,6 +358,7 @@ class Wos():
         """
         # It seems results are returned in a totally different format depending on search client used.
         # The 'premium' client ("Search") returns XML of matching records.
+        self.crossref = crossref
         if self.client == "Search":
             self.tree = etree.fromstring(self.search_results.records)
             objectify.deannotate(self.tree, cleanup_namespaces=True)
@@ -373,6 +374,8 @@ class Wos():
         elif self.client == "Lite":
             for record in self.search_results.records:
                 article_metadata = dict(record)
+                if self.crossref:
+                    abstract = CrossRef.get_abstract(article_metadata)
                 self.metadata_collection[category].append(article_metadata)
 
         else:
@@ -542,8 +545,3 @@ class Wos():
         self.records_found = self.search_results.recordsFound
         self.records_searched = self.search_results.recordsSearched
         print "Found {0} Results for {1}".format(self.records_found, self.query.encode('ascii', 'ignore'))
-
-
-
-
-
